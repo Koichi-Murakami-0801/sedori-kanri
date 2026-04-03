@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>楽天仕入れ管理 - ダッシュボード</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5f0f0;padding:20px;color:#1a1a1a}
+.container{max-width:1200px;margin:0 auto}
+
+/* header */
+.header{background:#bf0000;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 3px 12px rgba(191,0,0,.3);display:flex;justify-content:space-between;align-items:center}
+.header-left h1{font-size:22px;color:#fff;display:flex;align-items:center;gap:10px}
+.header-left .sub{color:rgba(255,255,255,.75);font-size:13px;margin-top:4px}
+.rakuten-logo{background:#fff;color:#bf0000;font-weight:900;font-size:12px;padding:3px 8px;border-radius:4px;letter-spacing:.5px}
+.btn-refresh{background:rgba(255,255,255,.2);color:#fff;border:2px solid rgba(255,255,255,.5);padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700}
+.btn-refresh:hover{background:rgba(255,255,255,.35)}
+
+/* ─ 経営管理モード ─ */
+.tax-section{background:#fff;border-radius:12px;padding:18px 22px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:5px solid #2c7a2c}
+.tax-title{font-size:15px;font-weight:800;color:#2c7a2c;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.tax-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.tax-card{border-radius:10px;padding:14px 16px}
+.tc-sales {background:#e8f0ff;border:1px solid #b0c8f0}
+.tc-cost  {background:#fff0f0;border:1px solid #f0b0b0}
+.tc-comm  {background:#fff8e8;border:1px solid #f0d890}
+.tc-ship  {background:#f8f0ff;border:1px solid #d0a8f0}
+.tc-profit{background:#f0fff4;border:1px solid #90d0a8}
+.tax-card .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;color:#555}
+.tax-card .val{font-size:20px;font-weight:800}
+.tv-blue{color:#1a6fc4}.tv-red{color:#bf0000}.tv-amber{color:#b87800}
+.tv-purple{color:#7c3aab}.tv-green{color:#00813a}.tv-loss{color:#c00}
+
+/* ─ 全体サマリー ─ */
+.total-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-top:4px solid #ddd}
+.stat.s-acc   {border-color:#888}
+.stat.s-sales {border-color:#1a6fc4}
+.stat.s-cost  {border-color:#bf0000}
+.stat.s-profit{border-color:#f5a623}
+.stat-lbl{font-size:11px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px;white-space:nowrap}
+.stat-val{font-size:20px;font-weight:800}
+.v-neutral{color:#333}.v-blue{color:#1a6fc4}.v-red{color:#bf0000}.v-gold{color:#d4870a}.v-loss{color:#c00}
+
+/* ─ account table ─ */
+.table-wrap{background:#fff;border-radius:12px;overflow-x:auto;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+table{width:100%;border-collapse:collapse}
+thead th{background:#bf0000;color:#fff;padding:12px 14px;text-align:left;font-size:12px;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap}
+thead th:hover{background:#8c0000}
+thead th.r{text-align:right}
+tbody td{padding:11px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:middle}
+tbody td.r{text-align:right}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fff8f8}
+.open-btn{display:inline-block;background:#bf0000;color:#fff;text-decoration:none;padding:5px 14px;border-radius:5px;font-size:12px;font-weight:700;white-space:nowrap}
+.open-btn:hover{background:#8c0000}
+.foot-row td{font-weight:700;background:#fff4f4;border-top:2px solid #bf0000!important;font-size:13px}
+.note{font-size:12px;color:#aaa;text-align:center;padding:13px}
+.c-blue{color:#1a6fc4}.c-red{color:#bf0000}.c-gold{color:#d4870a}.c-loss{color:#c00}
+
+/* ─ 月フィルターバー ─ */
+.filter-bar{background:#fff;border-radius:12px;padding:14px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filter-bar label{font-size:13px;font-weight:700;color:#555;white-space:nowrap}
+.filter-month-inp{border:1px solid #ccc;padding:7px 12px;border-radius:7px;font-size:14px;cursor:pointer;background:#fff}
+.filter-month-inp:focus{outline:none;border-color:#bf0000;box-shadow:0 0 0 2px rgba(191,0,0,.12)}
+.btn-period{background:#f4f4f4;color:#555;border:1px solid #ddd;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap}
+.btn-period:hover{background:#e8e8e8}
+.btn-period.is-active{background:#555;color:#fff;border-color:#555}
+.filter-badge{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.badge-all{background:#f0f0f0;color:#888;border:1px solid #ddd}
+.badge-on{background:#fff0f0;color:#bf0000;border:1px solid #f0b0b0}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-left">
+      <h1><span class="rakuten-logo">Rakuten</span> 楽天仕入れ管理 — ダッシュボード</h1>
+      <div class="sub" id="date-str"></div>
+    </div>
+    <button class="btn-refresh" onclick="loadAll()">↻ 更新</button>
+  </div>
+
+  <!-- ─ 月フィルター ─ -->
+  <div class="filter-bar">
+    <label>📅 表示月：</label>
+    <input type="month" id="dash-month" class="filter-month-inp" onchange="setDashFilter(this.value)">
+    <button class="btn-period" id="btn-all-dash" onclick="setDashFilter('')">全期間</button>
+    <button class="btn-period" onclick="shiftDashMonth(-1)">◀ 前月</button>
+    <button class="btn-period" onclick="shiftDashMonth(1)">次月 ▶</button>
+    <span id="dash-badge" class="filter-badge badge-all">全期間表示中</span>
+  </div>
+
+  <!-- 経営管理モード -->
+  <div class="tax-section">
+    <div class="tax-title"><span>📊</span> 経営管理モード（仕入れ日ベース）</div>
+    <div class="tax-cards">
+      <div class="tax-card tc-sales" ><div class="lbl">売上合計</div>      <div class="val tv-blue"   id="tx-sales" >—</div></div>
+      <div class="tax-card tc-cost"  ><div class="lbl">実質仕入れ合計</div><div class="val tv-red"    id="tx-cost"  >—</div></div>
+      <div class="tax-card tc-comm"  ><div class="lbl">販売手数料合計</div><div class="val tv-amber"  id="tx-comm"  >—</div></div>
+      <div class="tax-card tc-ship"  ><div class="lbl">送料合計</div>      <div class="val tv-purple" id="tx-ship"  >—</div></div>
+      <div class="tax-card tc-profit"><div class="lbl">純利益合計</div>    <div class="val"           id="tx-profit">—</div></div>
+    </div>
+  </div>
+
+  <!-- 全アカウント合算 (4 cards, no quota) -->
+  <div class="total-stats">
+    <div class="stat s-acc">
+      <div class="stat-lbl">総アカウント数</div>
+      <div class="stat-val v-neutral">2</div>
+    </div>
+    <div class="stat s-sales">
+      <div class="stat-lbl" id="t-sales-lbl">総売上</div>
+      <div class="stat-val v-blue" id="t-sales">—</div>
+    </div>
+    <div class="stat s-cost">
+      <div class="stat-lbl" id="t-cost-lbl">総実質仕入れ</div>
+      <div class="stat-val v-red" id="t-cost">—</div>
+    </div>
+    <div class="stat s-profit">
+      <div class="stat-lbl" id="t-profit-lbl">総純利益</div>
+      <div class="stat-val" id="t-profit">—</div>
+    </div>
+  </div>
+
+  <!-- アカウント別一覧 -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortBy('num')"      id="th-num">アカウント ▲</th>
+          <th onclick="sortBy('pa')"       id="th-pa"       class="r">購入金額合計</th>
+          <th onclick="sortBy('selling')"  id="th-selling"  class="r">売上</th>
+          <th onclick="sortBy('jissitsu')" id="th-jissitsu" class="r">実質仕入れ</th>
+          <th onclick="sortBy('jun')"      id="th-jun"      class="r">純利益</th>
+          <th onclick="sortBy('rate')"     id="th-rate"     class="r">利益率</th>
+          <th style="width:80px">開く</th>
+        </tr>
+      </thead>
+      <tbody id="dash-body"></tbody>
+    </table>
+    <div class="note">※ 各アカウントページで入力したデータが同じブラウザ（Chrome推奨）で自動反映されます。</div>
+  </div>
+</div>
+
+<script>
+var ACCOUNTS    = ['01','03'];
+var data        = [];
+var sortKey     = 'num';
+var sortAsc     = true;
+var filterMonth = '';
+
+function pad(x){ return String(x).padStart(2,'0'); }
+
+(function(){
+  var d = new Date();
+  document.getElementById('date-str').textContent =
+    d.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  var ym = d.getFullYear()+'-'+pad(d.getMonth()+1);
+  setDashFilter(ym);
+})();
+
+function isInDashFilter(e){
+  if(!filterMonth) return true;
+  return (e.date ? e.date.substring(0,7) : '') === filterMonth;
+}
+
+function setDashFilter(ym){
+  filterMonth = ym;
+  var inp    = document.getElementById('dash-month');
+  var badge  = document.getElementById('dash-badge');
+  var allBtn = document.getElementById('btn-all-dash');
+  if(inp) inp.value = ym;
+  if(ym){
+    badge.textContent = ym.replace('-','年')+'月表示中';
+    badge.className   = 'filter-badge badge-on';
+    allBtn.className  = 'btn-period';
+  } else {
+    badge.textContent = '全期間表示中';
+    badge.className   = 'filter-badge badge-all';
+    allBtn.className  = 'btn-period is-active';
+  }
+  loadAll();
+}
+
+function shiftDashMonth(delta){
+  var cur = filterMonth || (new Date().getFullYear()+'-'+pad(new Date().getMonth()+1));
+  var parts=cur.split('-'); var y=parseInt(parts[0]),m=parseInt(parts[1]);
+  m+=delta;
+  if(m>12){m=1;y++;} if(m<1){m=12;y--;}
+  setDashFilter(y+'-'+pad(m));
+}
+
+function n(v){ return parseFloat(v)||0; }
+function fmt(v){ return Math.round(v).toLocaleString('ja-JP'); }
+
+function migrate(e){
+  return {
+    date:           e.date           || '',
+    name:           e.name           || (e.shop||''),
+    purchaseAmount: n(e.purchaseAmount!=null ? e.purchaseAmount : e.purchase),
+    coupon:         n(e.coupon),
+    points:         n(e.points),
+    pointSite:      n(e.pointSite),
+    saleDate:       e.saleDate       || '',
+    salePlace:      e.salePlace      || '買取屋',
+    saleShop:       e.saleShop       || '',
+    selling:        n(e.selling),
+    commission:     n(e.commission),
+    shipping:       n(e.shipping)
+  };
+}
+
+function calcRow(e){
+  var jissitsu = n(e.purchaseAmount)-n(e.coupon)-n(e.points)-n(e.pointSite);
+  var jun      = n(e.selling)-jissitsu-n(e.commission)-n(e.shipping);
+  var rate     = n(e.selling)>0 ? (jun/n(e.selling))*100 : NaN;
+  return { jissitsu:jissitsu, jun:jun, rate:rate };
+}
+
+function loadAll(){
+  data = ACCOUNTS.map(function(acc){
+    var allEntries = [];
+    try{ allEntries = JSON.parse(localStorage.getItem('rakuten_data_'+acc)||'[]').map(migrate); }catch(e){}
+    var entries = allEntries.filter(isInDashFilter);
+    var pa=0,sel=0,jissitsu=0,jun=0,comm=0,ship=0;
+    entries.forEach(function(e){
+      var c=calcRow(e);
+      pa       +=n(e.purchaseAmount);
+      sel      +=n(e.selling);
+      jissitsu +=c.jissitsu;
+      jun      +=c.jun;
+      comm     +=n(e.commission);
+      ship     +=n(e.shipping);
+    });
+    var rate = sel>0?(jun/sel)*100:NaN;
+    return { num:acc, entries:entries, pa:pa, selling:sel, jissitsu:jissitsu,
+             jun:jun, comm:comm, ship:ship, rate:rate };
+  });
+  renderTotals();
+  renderTax();
+  renderTable();
+}
+
+function renderTotals(){
+  var sfx = filterMonth ? filterMonth.replace('-','年')+'月' : '全期間';
+  document.getElementById('t-sales-lbl').textContent  = '総売上（'+sfx+'）';
+  document.getElementById('t-cost-lbl').textContent   = '総実質仕入れ（'+sfx+'）';
+  document.getElementById('t-profit-lbl').textContent = '総純利益（'+sfx+'）';
+  var tSel=0, tJissitsu=0, tJun=0;
+  data.forEach(function(d){ tSel+=d.selling; tJissitsu+=d.jissitsu; tJun+=d.jun; });
+  document.getElementById('t-sales').textContent = fmt(tSel)+'円';
+  document.getElementById('t-cost').textContent  = fmt(tJissitsu)+'円';
+  var pe = document.getElementById('t-profit');
+  pe.textContent = fmt(tJun)+'円';
+  pe.className   = 'stat-val '+(tJun>=0?'v-gold':'v-loss');
+}
+
+function renderTax(){
+  var tSel=0,tJissitsu=0,tComm=0,tShip=0,tJun=0,cnt=0;
+  data.forEach(function(d){
+    d.entries.forEach(function(e){
+      var c=calcRow(e);
+      tSel+=n(e.selling); tJissitsu+=c.jissitsu;
+      tComm+=n(e.commission); tShip+=n(e.shipping);
+      tJun+=c.jun; cnt++;
+    });
+  });
+  document.getElementById('tx-sales').textContent  = cnt>0 ? fmt(tSel)+'円'      : '（データなし）';
+  document.getElementById('tx-cost').textContent   = cnt>0 ? fmt(tJissitsu)+'円' : '（データなし）';
+  document.getElementById('tx-comm').textContent   = cnt>0 ? fmt(tComm)+'円'     : '（データなし）';
+  document.getElementById('tx-ship').textContent   = cnt>0 ? fmt(tShip)+'円'     : '（データなし）';
+  var pe = document.getElementById('tx-profit');
+  pe.textContent = cnt>0 ? fmt(tJun)+'円' : '（データなし）';
+  pe.className   = 'val '+(cnt>0?(tJun>=0?'tv-green':'tv-loss'):'');
+}
+
+var COL = { num:'アカウント', pa:'購入金額合計', selling:'売上', jissitsu:'実質仕入れ', jun:'純利益', rate:'利益率' };
+
+function sortBy(key){
+  if(sortKey===key) sortAsc=!sortAsc; else{ sortKey=key; sortAsc=true; }
+  Object.keys(COL).forEach(function(k){
+    var el=document.getElementById('th-'+k);
+    if(el) el.textContent=COL[k]+(sortKey===k?(sortAsc?' ▲':' ▼'):'');
+  });
+  renderTable();
+}
+
+function renderTable(){
+  var sorted = data.slice().sort(function(a,b){
+    var av=a[sortKey], bv=b[sortKey];
+    if(isNaN(av)) av=-Infinity; if(isNaN(bv)) bv=-Infinity;
+    return sortAsc?(av<bv?-1:av>bv?1:0):(av>bv?-1:av<bv?1:0);
+  });
+  var tbody = document.getElementById('dash-body');
+  tbody.innerHTML = '';
+  sorted.forEach(function(d){
+    var profCls = d.jun>=0?'c-gold':'c-loss';
+    var rateStr = isFinite(d.rate)&&!isNaN(d.rate)?d.rate.toFixed(1)+'%':'—';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><strong>アカウント '+d.num+'</strong></td>'+
+      '<td class="r">'+fmt(d.pa)+'円</td>'+
+      '<td class="r c-blue">'+fmt(d.selling)+'円</td>'+
+      '<td class="r c-red">'+fmt(d.jissitsu)+'円</td>'+
+      '<td class="r '+profCls+'"><strong>'+fmt(d.jun)+'円</strong></td>'+
+      '<td class="r '+profCls+'">'+rateStr+'</td>'+
+      '<td><a href="rakuten_'+d.num+'.html" class="open-btn">開く →</a></td>';
+    tbody.appendChild(tr);
+  });
+  /* 合計行 */
+  var tPA=0,tSel=0,tJissitsu=0,tJun=0;
+  data.forEach(function(d){ tPA+=d.pa; tSel+=d.selling; tJissitsu+=d.jissitsu; tJun+=d.jun; });
+  var avgRate = tSel>0?(tJun/tSel)*100:NaN;
+  var tf = document.createElement('tr');
+  tf.className = 'foot-row';
+  tf.innerHTML =
+    '<td><strong>2アカウント合計</strong></td>'+
+    '<td class="r">'+fmt(tPA)+'円</td>'+
+    '<td class="r c-blue">'+fmt(tSel)+'円</td>'+
+    '<td class="r c-red">'+fmt(tJissitsu)+'円</td>'+
+    '<td class="r '+(tJun>=0?'c-gold':'c-loss')+'"><strong>'+fmt(tJun)+'円</strong></td>'+
+    '<td class="r '+(tJun>=0?'c-gold':'c-loss')+'">'+(isFinite(avgRate)&&!isNaN(avgRate)?avgRate.toFixed(1)+'%':'—')+'</td>'+
+    '<td></td>';
+  tbody.appendChild(tf);
+}
+</script>
+</body>
+</html>

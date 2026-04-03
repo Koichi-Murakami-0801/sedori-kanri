@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>データ修正ツール（その他）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f0f2f5;padding:20px;color:#1a1a1a}
+.container{max-width:960px;margin:0 auto}
+h1{font-size:20px;margin-bottom:16px;color:#1b7a4a}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.card h2{font-size:15px;font-weight:800;margin-bottom:12px;color:#333}
+.btn{padding:10px 22px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:700;margin-right:8px;margin-bottom:8px}
+.btn-primary{background:#1b7a4a;color:#fff}
+.btn-primary:hover{background:#145c38}
+.btn-secondary{background:#f0f0f0;color:#555}
+.btn-secondary:hover{background:#e0e0e0}
+.log{background:#1a1a1a;color:#00ff88;border-radius:8px;padding:14px;font-family:monospace;font-size:13px;line-height:1.7;max-height:500px;overflow-y:auto;white-space:pre-wrap;margin-top:12px}
+.log .warn{color:#ffcc00}
+.log .err{color:#ff6666}
+.log .info{color:#66ccff}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.stat-box{background:#f8f8f8;border-radius:8px;padding:12px;text-align:center}
+.stat-box .num{font-size:28px;font-weight:800;color:#1b7a4a}
+.stat-box .lbl{font-size:12px;color:#888;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+th{background:#1b7a4a;color:#fff;padding:8px 10px;text-align:left}
+td{padding:8px 10px;border-bottom:1px solid #f0f0f0}
+tr:hover td{background:#f6fbf8}
+.tag-fix{background:#ffe0e0;color:#c00;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700}
+.tag-ok {background:#e0ffe0;color:#060;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔧 データ修正ツール — その他仕入れ管理</h1>
+
+  <div class="card">
+    <h2>① まずスキャンして現状を確認</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:12px">
+      全アカウントの localStorage を読み込み、販売日が空のデータを一覧表示します。
+    </p>
+    <button class="btn btn-secondary" onclick="doScan()">🔍 スキャン実行</button>
+    <button class="btn btn-primary" id="btn-fix" onclick="doFix()" style="display:none">✅ 修正を実行する</button>
+    <div class="summary" id="summary" style="display:none">
+      <div class="stat-box"><div class="num" id="cnt-total">0</div><div class="lbl">総エントリ数</div></div>
+      <div class="stat-box"><div class="num" id="cnt-empty">0</div><div class="lbl">販売日が空</div></div>
+      <div class="stat-box"><div class="num" id="cnt-fixable">0</div><div class="lbl">修正対象（MM-DD_パターン）</div></div>
+    </div>
+    <div class="log" id="log" style="display:none"></div>
+  </div>
+
+  <div class="card" id="table-card" style="display:none">
+    <h2>② 修正対象データ一覧</h2>
+    <table id="preview-table">
+      <thead>
+        <tr>
+          <th>アカウント</th>
+          <th>購入日</th>
+          <th>商品名</th>
+          <th>現在の販売先・店名</th>
+          <th>→ 補完される販売日</th>
+          <th>→ 修正後の店名</th>
+          <th>状態</th>
+        </tr>
+      </thead>
+      <tbody id="preview-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+var ACCOUNTS = ['01'];
+var KEY_PREFIX = 'others_data_';
+var YEAR = '2026';
+var PATTERNS = [
+  /^(\d{2})[-\/](\d{2})[_\s](.*)$/,
+  /^(\d{4})[-\/](\d{2})[-\/](\d{2})[_\s](.*)$/,
+];
+var scanData = {};
+var logEl;
+
+function log(msg, cls){
+  if(!logEl) logEl = document.getElementById('log');
+  logEl.style.display = 'block';
+  var line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function parseEntry(acc, e){
+  var shop = (e.saleShop || '').trim();
+  var date = (e.saleDate || '').trim();
+  if(date) return null;
+  var m = shop.match(PATTERNS[0]);
+  if(m){ return { newDate: YEAR+'-'+m[1]+'-'+m[2], newShop: m[3].trim(), oldShop: shop }; }
+  m = shop.match(PATTERNS[1]);
+  if(m){ return { newDate: m[1]+'-'+m[2]+'-'+m[3], newShop: m[4].trim(), oldShop: shop }; }
+  return null;
+}
+
+function doScan(){
+  logEl = document.getElementById('log');
+  logEl.innerHTML = '';
+  logEl.style.display = 'block';
+  document.getElementById('summary').style.display = 'none';
+  document.getElementById('table-card').style.display = 'none';
+  document.getElementById('btn-fix').style.display = 'none';
+  document.getElementById('preview-body').innerHTML = '';
+  scanData = {};
+
+  var cntTotal=0, cntEmpty=0, cntFixable=0;
+  var rows = [];
+
+  log('=== スキャン開始（その他） ===', 'info');
+
+  ACCOUNTS.forEach(function(acc){
+    var key = KEY_PREFIX + acc;
+    var raw = localStorage.getItem(key);
+    if(!raw || raw === '[]'){
+      log(key + ': データなし（空）', 'warn');
+      return;
+    }
+    var entries;
+    try{ entries = JSON.parse(raw); }
+    catch(e){ log(key + ': JSON parse エラー → ' + e, 'err'); return; }
+
+    cntTotal += entries.length;
+    var fixCount = 0, emptyCount = 0;
+    entries.forEach(function(e, i){
+      if(!e.saleDate) emptyCount++;
+      var fix = parseEntry(acc, e);
+      if(fix){ cntFixable++; fixCount++; rows.push({acc:acc, idx:i, e:e, fix:fix}); }
+    });
+    scanData[acc] = entries;
+    log(key + ': ' + entries.length + '件 / 販売日空=' + emptyCount + ' / 修正対象=' + fixCount);
+  });
+
+  cntEmpty = Object.values(scanData).flat().filter(function(e){ return !e.saleDate; }).length;
+  document.getElementById('cnt-total').textContent   = cntTotal;
+  document.getElementById('cnt-empty').textContent   = cntEmpty;
+  document.getElementById('cnt-fixable').textContent = cntFixable;
+  document.getElementById('summary').style.display   = 'grid';
+
+  log('');
+  log('=== スキャン完了：修正対象 ' + cntFixable + ' 件 ===', 'info');
+
+  if(cntFixable === 0){
+    log('');
+    log('⚠ 修正対象が見つかりませんでした。実際の saleShop 値（上位10件）:', 'warn');
+    var shown = 0;
+    Object.entries(scanData).forEach(function(kv){
+      kv[1].forEach(function(e){
+        if(!e.saleDate && shown < 10){
+          log('  acc=' + kv[0] + ' saleShop=' + JSON.stringify(e.saleShop) + ' saleDate=' + JSON.stringify(e.saleDate), 'warn');
+          shown++;
+        }
+      });
+    });
+  } else {
+    var tbody = document.getElementById('preview-body');
+    rows.slice(0,100).forEach(function(r){
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>'+r.acc+'</td>'+
+        '<td>'+(r.e.date||'—')+'</td>'+
+        '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(r.e.name||'—')+'</td>'+
+        '<td><span style="color:#c00;font-weight:700">'+escHtml(r.fix.oldShop)+'</span></td>'+
+        '<td><strong>'+r.fix.newDate+'</strong></td>'+
+        '<td>'+escHtml(r.fix.newShop)+'</td>'+
+        '<td><span class="tag-fix">修正予定</span></td>';
+      tbody.appendChild(tr);
+    });
+    if(rows.length > 100){
+      var tr2 = document.createElement('tr');
+      tr2.innerHTML = '<td colspan="7" style="text-align:center;color:#999">他 '+(rows.length-100)+' 件...</td>';
+      tbody.appendChild(tr2);
+    }
+    document.getElementById('table-card').style.display = 'block';
+    document.getElementById('btn-fix').style.display = 'inline-block';
+  }
+}
+
+function doFix(){
+  if(!confirm(document.getElementById('cnt-fixable').textContent + ' 件のデータを修正します。よろしいですか？')) return;
+
+  var cntFixed = 0;
+  log('');
+  log('=== 修正開始 ===', 'info');
+
+  ACCOUNTS.forEach(function(acc){
+    if(!scanData[acc]) return;
+    var entries = scanData[acc];
+    var changed = 0;
+    entries.forEach(function(e){
+      var fix = parseEntry(acc, e);
+      if(fix){ e.saleDate = fix.newDate; e.saleShop = fix.newShop; changed++; cntFixed++; }
+    });
+    if(changed > 0){
+      localStorage.setItem(KEY_PREFIX + acc, JSON.stringify(entries));
+      log(KEY_PREFIX + acc + ': ' + changed + ' 件修正・保存完了');
+    }
+  });
+
+  log('');
+  log('=== 修正完了：' + cntFixed + ' 件 ===', 'info');
+  log('✅ ダッシュボードを開いて「↻ 更新」ボタンを押してください。', 'info');
+
+  document.getElementById('btn-fix').style.display = 'none';
+  document.getElementById('cnt-fixable').textContent = '→ ' + cntFixed + '件 修正済';
+  document.querySelectorAll('#preview-body .tag-fix').forEach(function(c){ c.className='tag-ok'; c.textContent='修正済'; });
+}
+
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

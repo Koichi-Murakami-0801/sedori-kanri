@@ -284,7 +284,13 @@ function migrate(e){
   };
 }
 
-function save(){ localStorage.setItem(KEY, JSON.stringify(entries)); }
+function save(){
+  entries.forEach(function(e){
+    if(n(e.selling)>0 && e.saleDate && e.arrivalStatus!=='shipped') e.arrivalStatus='shipped';
+    if(e.arrivalStatus==='shipped' && !e.saleDate) e.arrivalStatus='arrived';
+  });
+  localStorage.setItem(KEY, JSON.stringify(entries));
+}
 function n(v){ return parseFloat(v)||0; }
 function genRowId(){ return 'R-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6); }
 function fmt(v){ return Math.round(v).toLocaleString('ja-JP'); }
